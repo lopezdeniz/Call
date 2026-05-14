@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Voice Call</title>
+    <link href="https://fonts.googleapis.com/css2?family=SF+Pro+Display:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --apple-white: #FFFFFF;
+            --apple-gray-light: #F2F2F7;
+            --apple-gray: #8E8E93;
+            --apple-gray-dark: #3A3A3C;
+            --apple-blue: #007AFF;
+            --apple-green: #34C759;
+            --apple-red: #FF3B30;
+            --apple-text-dark: #000000;
+            --apple-text-light: #F2F2F7;
+        }
+
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100dvh; /* Динамическая высота для мобильных браузеров */
+            background-color: var(--apple-gray-light);
+            font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif;
+            color: var(--apple-text-dark);
+            overflow: hidden; /* Жестко запрещаем любой скролл */
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Главный контейнер на весь экран с учетом "челок" и системных панелей */
+        .app-container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            padding-top: env(safe-area-inset-top);
+            padding-bottom: env(safe-area-inset-bottom);
+            box-sizing: border-box;
+            background: var(--apple-white);
+        }
+
+        #start-screen {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: var(--apple-white);
+            z-index: 200;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            text-align: center;
+            box-sizing: border-box;
+        }
+
+        #start-app-btn {
+            padding: 16px 40px;
+            background-color: var(--apple-blue);
+            color: white;
+            border: none;
+            border-radius: 30px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0, 122, 255, 0.3);
+            margin-top: 20px;
+        }
+
+        .status-bar {
+            height: 50px;
+            padding: 0 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 14px;
+            z-index: 100;
+            flex-shrink: 0;
+        }
+
+        .call-info-panel {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        #call-status-large { font-size: 28px; font-weight: 600; margin-bottom: 5px; }
+        #call-duration { font-size: 18px; color: var(--apple-gray); font-weight: 400; margin-bottom: 20px; }
+
+        .controls {
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+            box-sizing: border-box;
+            flex-shrink: 0;
+            padding-bottom: calc(20px + env(safe-area-inset-bottom));
+        }
+
+        .buttons-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-bottom: 30px;
+            width: 100%;
+            max-width: 320px;
+        }
+
+        .control-button { display: flex; flex-direction: column; align-items: center; justify-content: center; background: none; border: none; padding: 0; }
+        .icon-circle { width: 70px; height: 70px; border-radius: 50%; background-color: var(--apple-gray-dark); color: var(--apple-text-light); display: flex; justify-content: center; align-items: center; margin-bottom: 8px; transition: 0.2s; }
+        .control-button.active .icon-circle { background-color: var(--apple-text-light); color: var(--apple-gray-dark); border: 2px solid var(--apple-gray-dark); box-sizing: border-box; }
+        
+        .control-button.speaker .icon-circle { background-color: var(--apple-blue); }
+        .control-button.speaker.active .icon-circle { background-color: var(--apple-text-light); color: var(--apple-blue); border: 2px solid var(--apple-blue); box-sizing: border-box; }
+        .control-button span { font-size: 13px; color: var(--apple-gray); }
+
+        #end-call-btn { width: 80px; height: 80px; border-radius: 50%; background-color: var(--apple-red); color: white; border: none; display: flex; justify-content: center; align-items: center; }
+
+        #host-panel { display: none; flex-direction: column; align-items: center; width: 100%; padding: 20px; box-sizing: border-box; }
+        #host-link-card { background: var(--apple-gray-light); border-radius: 20px; padding: 20px; width: 100%; max-width: 350px; text-align: center; }
+        #share-link-input { width: 100%; padding: 12px; background: white; border: none; border-radius: 10px; margin: 15px 0; box-sizing: border-box; text-align: center; font-size: 14px; color: var(--apple-blue); outline: none; }
+        #copy-link-btn { width: 100%; padding: 14px; background-color: var(--apple-blue); color: white; border: none; border-radius: 10px; font-size: 16px; font-weight: 600; }
+
+        .icon { width: 32px; height: 32px; fill: currentColor; }
+
+        #incoming-panel { position: absolute; top: 80px; left: 50%; transform: translateX(-50%); width: 90%; max-width: 350px; background: white; border-radius: 20px; padding: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.15); display: none; flex-direction: column; align-items: center; z-index: 120; box-sizing: border-box; }
+        
+        #language-panel-start { display: flex; gap: 10px; margin-top: 30px; }
+        .lang-button { padding: 8px 16px; background: var(--apple-gray-light); color: var(--apple-gray-dark); border: none; border-radius: 20px; font-weight: 600; }
+        .lang-button.active { background: var(--apple-green); color: white; }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        
+        <div id="start-screen">
+            <h2 style="font-size: 32px; margin-bottom: 10px;">Voice Call</h2>
+            <p id="start-desc" style="color: var(--apple-gray); margin-bottom: 10px; padding: 0 20px;">Для работы требуется микрофон.</p>
+            <button id="start-app-btn">Начать</button>
+            <div id="language-panel-start">
+                <button class="lang-button active" onclick="setLanguage('RU')">RU</button>
+                <button class="lang-button" onclick="setLanguage('EN')">EN</button>
+            </div>
+        </div>
+
+        <div class="status-bar">
+            <span>Voice Call</span>
+            <span id="call-duration-top" style="color: var(--apple-blue); display: none;">00:00</span>
+        </div>
+
+        <div id="incoming-panel">
+            <div id="incoming-title" style="font-size: 22px; font-weight: 600; margin-bottom: 5px;">Входящий вызов...</div>
+            <p id="call-info" style="font-size: 15px; color: var(--apple-gray); margin: 0;"></p>
+        </div>
+
+        <!-- Контейнер выровнен по центру -->
+        <div class="call-info-panel">
+            <div id="call-status-large">Подключение...</div>
+            <div id="call-duration" style="display: none;">00:00</div>
+            <div id="call-status-description" style="font-size: 15px; color: var(--apple-gray); margin-top: 5px;"></div>
+            
+            <div id="host-panel">
+                <div id="host-link-card">
+                    <p id="host-title" style="margin: 0; font-weight: 600; color: var(--apple-gray-dark);">Пригласите собеседника:</p>
+                    <input type="text" id="share-link-input" readonly>
+                    <button id="copy-link-btn" onclick="copyLink()">Скопировать ссылку</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="controls" id="active-controls" style="display: none;">
+            <div class="buttons-grid">
+                <button class="control-button" id="mute-btn">
+                    <div class="icon-circle">
+                        <svg class="icon" viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm-1-9c0-.55.45-1 1-1s1 .45 1 1v6c0 .55-.45 1-1 1s-1-.45-1-1V5z"/><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>
+                    </div>
+                    <span id="mute-label">Выкл. звук</span>
+                </button>
+                <div class="control-button" style="opacity: 0.3;">
+                    <div class="icon-circle">
+                        <svg class="icon" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-10 10-10S17.52 2 12 2zm5 11h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"/></svg>
+                    </div>
+                    <span id="keypad-label">Клавиши</span>
+                </div>
+                <button class="control-button speaker" id="speaker-btn">
+                    <div class="icon-circle">
+                        <svg class="icon" viewBox="0 0 24 24"><path d="M18.17,4.89C17.78,4.5,17.15,4.5,16.76,4.89s-0.39,1.02,0,1.41C18.6,8.13,19,9.54,19,11s-0.4,2.87-1.24,4.7c-0.39,0.39-0.39,1.02,0,1.41s1.02,0.39,1.41,0C20.35,15.74,21,13.8,21,11S20.35,6.26,18.17,4.89z M12,4c-1.1,0-2,0.9-2,2v12c0,1.1,0.9,2,2,2c1.1,0,2-0.9,2-2V6C14,4.9,13.1,4,12,4z M13.88,10.66C13.8,10.2,13.43,10,13,10h-2c-0.43,0-0.8,0.2-0.88,0.66C10.05,10.98,10.3,11.2,10.53,11.36C10.68,11.45,10.84,11.53,11,11.6c0.05,0.02,0.1,0.04,0.15,0.06C11.33,11.75,11.5,11.83,11.67,11.9c0.11,0.05,0.22,0.09,0.33,0.14c0.23,0.1,0.47,0.19,0.7,0.27l0.01,0.01c0.05,0.02,0.09,0.04,0.14,0.06c0.16,0.06,0.32,0.12,0.48,0.17l0.01,0c0.16,0.05,0.32,0.1,0.48,0.14c0.15,0.04,0.3,0.08,0.46,0.11l0.01,0C13.68,12.87,13.85,12.93,14,13V6.26l-0.12,0.4C13.88,10.66z M16.76,17.7c0.39,0.39,1.02,0.39,1.41,0c1.11-1.11,1.83-2.61,1.83-4.7c0-2.09-0.72-3.59-1.83-4.7c-0.39-0.39-1.02-0.39-1.41,0c-0.39,0.39-0.39,1.02,0,1.41c0.75,0.75,1.24,1.74,1.24,3.29c0,1.55-0.49,2.54-1.24,3.29C16.36,16.68,16.36,17.3,16.76,17.7z"/></svg>
+                    </div>
+                    <span id="speaker-label">Динамик</span>
+                </button>
+            </div>
+            <button id="end-call-btn">
+                <svg class="icon" viewBox="0 0 24 24" fill="white"><path d="M12 9c-1.6 0-3.15.25-4.6.72v3.1c0 .39-.23.74-.56.9-.98.49-1.87 1.12-2.66 1.85-.18.18-.43.28-.7.28-.28 0-.53-.11-.71-.29L.29 13.08c-.18-.17-.29-.42-.29-.7 0-.28.11-.53.29-.71C3.34 8.78 7.46 7 12 7s8.66 1.78 11.71 4.67c.18.18.29.43.29.71 0 .28-.11.53-.29.71l-2.48 2.48c-.18.18-.43.29-.71.29-.27 0-.52-.11-.7-.28-.79-.74-1.69-1.36-2.67-1.85-.33-.16-.56-.5-.56-.9v-3.1C15.15 9.25 13.6 9 12 9z"/></svg>
+            </button>
+        </div>
+
+        <audio id="remote-audio-earpiece" autoplay></audio>
+        <audio id="remote-audio-speaker" autoplay></audio>
+    </div>
+
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    
+    <script>
+        const uiStrings = {
+            RU: { startDesc: "Нажмите кнопку ниже, чтобы разрешить использование микрофона.", btnStart: "Начать", micReq: "Запрашиваем микрофон...", micError: "Ошибка микрофона. Проверьте разрешения браузера.", serverConnect: "Подключение...", hostWaiting: "Отправьте ссылку для связи:", hostCopy: "Скопировать ссылку", callConnected: "Входящий вызов...", autoConnect: "Соединение...", activeCall: "Разговор идет", callEnd: "Завершен.", btnMute: "Выкл. звук", btnMuted: "Вкл. звук", btnSpeaker: "Динамик", keypad: "Клавиши", callStartedAt: "Начат: ", waitingForPeer: "Ожидание собеседника" },
+            EN: { startDesc: "Tap below to allow microphone access.", btnStart: "Start", micReq: "Requesting mic...", micError: "Mic error. Check browser permissions.", serverConnect: "Connecting...", hostWaiting: "Share link to connect:", hostCopy: "Copy link", callConnected: "Incoming call...", autoConnect: "Connecting...", activeCall: "On call", callEnd: "Ended.", btnMute: "Mute", btnMuted: "Unmute", btnSpeaker: "Speaker", keypad: "Keypad", callStartedAt: "Started at: ", waitingForPeer: "Waiting for peer" }
+        };
+
+        const elements = {
+            startScreen: document.getElementById('start-screen'),
+            startAppBtn: document.getElementById('start-app-btn'),
+            statusLarge: document.getElementById('call-status-large'),
+            statusDesc: document.getElementById('call-status-description'),
+            duration: document.getElementById('call-duration'),
+            durationTop: document.getElementById('call-duration-top'),
+            audioEarpiece: document.getElementById('remote-audio-earpiece'),
+            audioSpeaker: document.getElementById('remote-audio-speaker'),
+            hostPanel: document.getElementById('host-panel'),
+            shareInput: document.getElementById('share-link-input'),
+            controls: document.getElementById('active-controls'),
+            muteBtn: document.getElementById('mute-btn'),
+            muteLabel: document.getElementById('mute-label'),
+            speakerBtn: document.getElementById('speaker-btn'),
+            speakerLabel: document.getElementById('speaker-label'),
+            endCallBtn: document.getElementById('end-call-btn'),
+            incomingPanel: document.getElementById('incoming-panel'),
+            callInfo: document.getElementById('call-info')
+        };
+
+        let localStream, currentPeer, currentCall, callStartTime, durationInterval;
+        let isMuted = false, isSpeaker = false;
+        let wakeLock = null; // Переменная для удержания экрана включенным
+
+        const targetId = new URLSearchParams(window.location.search).get('call');
+        let currentLanguage = 'RU';
+
+        function setLanguage(lang) {
+            currentLanguage = lang;
+            document.querySelectorAll('.lang-button').forEach(btn => btn.classList.remove('active'));
+            document.querySelector(`.lang-button[onclick="setLanguage('${lang}')"]`).classList.add('active');
+            updateUI();
+        }
+
+        function updateUI() {
+            const s = uiStrings[currentLanguage];
+            document.getElementById('start-desc').innerText = s.startDesc;
+            elements.startAppBtn.innerText = targetId && !currentCall ? (lang==='RU'?"Ответить":"Answer") : s.btnStart;
+            document.getElementById('host-title').innerText = s.hostWaiting;
+            document.getElementById('copy-link-btn').innerText = s.hostCopy;
+            document.getElementById('incoming-title').innerText = s.callConnected;
+            elements.muteLabel.innerText = isMuted ? s.btnMuted : s.btnMute;
+            elements.speakerLabel.innerText = s.btnSpeaker;
+            document.getElementById('keypad-label').innerText = s.keypad;
+        }
+        updateUI();
+
+        // Запрос удержания экрана (WakeLock API)
+        async function requestWakeLock() {
+            try {
+                if ('wakeLock' in navigator) {
+                    wakeLock = await navigator.wakeLock.request('screen');
+                    wakeLock.addEventListener('release', () => {
+                        console.log('Wake Lock снят');
+                    });
+                }
+            } catch (err) {
+                console.error('Wake Lock ошибка:', err);
+            }
+        }
+
+        elements.startAppBtn.addEventListener('click', () => {
+            elements.startScreen.style.display = 'none';
+            elements.statusDesc.innerText = uiStrings[currentLanguage].micReq;
+            
+            requestWakeLock(); // Просим телефон не гасить экран
+
+            navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+                .then(stream => {
+                    localStream = stream;
+                    elements.statusDesc.innerText = uiStrings[currentLanguage].serverConnect;
+                    initPeer();
+                })
+                .catch(err => {
+                    elements.statusLarge.innerText = "Ошибка";
+                    elements.statusDesc.innerText = uiStrings[currentLanguage].micError;
+                });
+        });
+
+        function initPeer() {
+            currentPeer = new Peer();
+            currentPeer.on('open', myId => {
+                if (targetId) {
+                    elements.statusLarge.innerText = uiStrings[currentLanguage].autoConnect;
+                    elements.statusDesc.innerText = "";
+                    handleCall(currentPeer.call(targetId, localStream));
+                } else {
+                    elements.statusLarge.innerText = uiStrings[currentLanguage].waitingForPeer;
+                    elements.statusDesc.innerText = "";
+                    elements.shareInput.value = `${window.location.origin}${window.location.pathname}?call=${myId}`;
+                    elements.hostPanel.style.display = 'flex';
+                }
+            });
+
+            currentPeer.on('call', call => {
+                elements.incomingPanel.style.display = 'flex';
+                elements.statusLarge.innerText = uiStrings[currentLanguage].callConnected;
+                elements.callInfo.innerText = uiStrings[currentLanguage].callStartedAt + new Date().toLocaleTimeString();
+                call.answer(localStream);
+                handleCall(call);
+                elements.hostPanel.style.display = 'none';
+            });
+        }
+
+        function handleCall(call) {
+            currentCall = call;
+            elements.controls.style.display = 'flex';
+            elements.incomingPanel.style.display = 'none';
+            elements.statusLarge.innerText = uiStrings[currentLanguage].activeCall;
+            elements.duration.style.display = 'block';
+            elements.durationTop.style.display = 'block';
+            
+            callStartTime = Date.now();
+            updateCallDuration();
+            durationInterval = setInterval(updateCallDuration, 1000);
+
+            call.on('stream', remoteStream => {
+                elements.audioEarpiece.srcObject = remoteStream;
+                elements.audioSpeaker.srcObject = remoteStream;
+                setSpeaker(isSpeaker);
+            });
+
+            call.on('close', endCallUI);
+        }
+
+        elements.muteBtn.addEventListener('click', () => {
+            isMuted = !isMuted;
+            if(localStream) localStream.getAudioTracks()[0].enabled = !isMuted;
+            elements.muteBtn.classList.toggle('active', isMuted);
+            updateUI();
+        });
+
+        elements.speakerBtn.addEventListener('click', () => {
+            isSpeaker = !isSpeaker;
+            setSpeaker(isSpeaker);
+            elements.speakerBtn.classList.toggle('active', isSpeaker);
+        });
+
+        function setSpeaker(speaker) {
+            elements.audioEarpiece.volume = speaker ? 0 : 1;
+            elements.audioSpeaker.volume = speaker ? 1 : 0;
+        }
+
+        elements.endCallBtn.addEventListener('click', () => {
+            if (currentCall) currentCall.close();
+            if (currentPeer) currentPeer.destroy();
+            endCallUI();
+        });
+
+        function updateCallDuration() {
+            const diff = Date.now() - callStartTime;
+            const m = Math.floor(diff / 60000).toString().padStart(2, '0');
+            const s = Math.floor((diff % 60000) / 1000).toString().padStart(2, '0');
+            elements.duration.innerText = elements.durationTop.innerText = `${m}:${s}`;
+        }
+
+        function endCallUI() {
+            elements.controls.style.display = 'none';
+            clearInterval(durationInterval);
+            elements.statusLarge.innerText = uiStrings[currentLanguage].callEnd;
+            elements.duration.style.display = 'none';
+            elements.durationTop.style.display = 'none';
+            window.history.replaceState({}, document.title, window.location.pathname);
+            
+            if (wakeLock !== null) {
+                wakeLock.release().then(() => wakeLock = null);
+            }
+        }
+
+        function copyLink() {
+            elements.shareInput.select();
+            navigator.clipboard.writeText(elements.shareInput.value)
+                .then(() => alert(uiStrings[currentLanguage].hostCopy + " ✓"))
+                .catch(() => alert("Ошибка копирования."));
+        }
+    </script>
+</body>
+</html>
+
+
