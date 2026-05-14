@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Voice Call</title>
+    <!-- Подключаем шрифт, похожий на San Francisco от Apple -->
+    <link href="https://fonts.googleapis.com/css2?family=SF+Pro+Display:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --apple-white: #FFFFFF;
+            --apple-gray-light: #F2F2F7;
+            --apple-gray: #8E8E93;
+            --apple-gray-dark: #3A3A3C;
+            --apple-blue: #007AFF;
+            --apple-green: #34C759;
+            --apple-red: #FF3B30;
+            --apple-border: rgba(0, 0, 0, 0.05);
+            --apple-text-dark: #000000;
+            --apple-text-light: #F2F2F7;
+        }
+
+        body {
+            font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--apple-gray-light);
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            color: var(--apple-text-dark);
+            -webkit-font-smoothing: antialiased;
+            overflow: hidden;
+        }
+
+        .phone-mockup {
+            width: 100%;
+            height: 100%;
+            max-width: 430px; /* Примерный размер iPhone Plus/Max */
+            background: var(--apple-white);
+            border-radius: 40px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            border: 1px solid var(--apple-border);
+            position: relative;
+        }
+
+        /* Заголовок (Status Bar) */
+        .status-bar {
+            height: 50px;
+            padding: 0 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 14px;
+            color: var(--apple-text-dark);
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+        }
+
+        .call-info-panel {
+            flex-grow: 1;
+            padding: 60px 20px 20px; /* Отступ под статус бар */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            position: relative;
+        }
+
+        /* Главный статус звонка */
+        #call-status-large {
+            font-size: 24px;
+            font-weight: 600;
+            margin: 15px 0 5px;
+            color: var(--apple-text-dark);
+        }
+
+        #call-duration {
+            font-size: 16px;
+            color: var(--apple-gray);
+            font-weight: 400;
+            margin-bottom: 20px;
+        }
+
+        /* Панель управления звонком */
+        .controls {
+            padding: 20px 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+            margin-top: auto;
+        }
+
+        .buttons-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            margin-bottom: 30px;
+            width: 100%;
+            max-width: 320px;
+        }
+
+        .control-button {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: none;
+            border: none;
+            cursor: pointer;
+            width: 100%;
+            height: 90px;
+        }
+
+        .icon-circle {
+            width: 65px;
+            height: 65px;
+            border-radius: 50%;
+            background-color: var(--apple-gray-dark);
+            color: var(--apple-text-light);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 8px;
+            border: 2px solid transparent;
+            transition: background-color 0.2s, color 0.2s;
+        }
+
+        .control-button.active .icon-circle {
+            background-color: var(--apple-text-light);
+            color: var(--apple-gray-dark);
+            border-color: var(--apple-text-light);
+        }
+
+        .control-button.speaker .icon-circle {
+            background-color: var(--apple-blue);
+            color: var(--apple-text-light);
+        }
+
+        .control-button.speaker.active .icon-circle {
+            background-color: var(--apple-white);
+            color: var(--apple-blue);
+            border-color: var(--apple-border);
+        }
+
+        .control-button span {
+            font-size: 12px;
+            font-weight: 400;
+            color: var(--apple-gray);
+        }
+
+        /* Крупная кнопка завершения звонка */
+        #end-call-btn {
+            width: 75px;
+            height: 75px;
+            border-radius: 50%;
+            background-color: var(--apple-red);
+            color: var(--apple-white);
+            border: none;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        /* Панель "Поделиться" */
+        #host-panel {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+            position: absolute;
+            bottom: 30px;
+            padding: 0 20px;
+            box-sizing: border-box;
+            z-index: 50;
+        }
+
+        #host-link-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            border: 1px solid var(--apple-border);
+            padding: 20px;
+            width: 100%;
+            text-align: center;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.05);
+        }
+
+        #host-link-card p {
+            margin: 0 0 15px;
+            font-size: 16px;
+            line-height: 1.4;
+            color: var(--apple-gray-dark);
+        }
+
+        #share-link-input {
+            width: 100%;
+            padding: 12px;
+            background: var(--apple-gray-light);
+            border: 1px solid var(--apple-border);
+            border-radius: 10px;
+            margin-bottom: 15px;
+            box-sizing: border-box;
+            text-align: center;
+            font-size: 14px;
+            color: var(--apple-blue);
+        }
+
+        #copy-link-btn {
+            width: 100%;
+            padding: 14px;
+            background-color: var(--apple-blue);
+            color: var(--apple-white);
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        /* SVG Иконки */
+        .icon { width: 30px; height: 30px; fill: currentColor; }
+
+        /* Языковая панель (персонализация) */
+        #language-panel {
+            position: absolute;
+            top: 60px;
+            left: 20px;
+            right: 20px;
+            display: none;
+            justify-content: center;
+            gap: 10px;
+            z-index: 110;
+        }
+
+        .lang-button {
+            padding: 8px 15px;
+            background: var(--apple-gray-dark);
+            color: var(--apple-text-light);
+            border: none;
+            border-radius: 15px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            transition: background-color 0.2s;
+        }
+
+        .lang-button.active {
+            background-color: var(--apple-green);
+        }
+
+        /* Панель входящего вызова */
+        #incoming-panel {
+            position: absolute;
+            top: 60px;
+            left: 20px;
+            right: 20px;
+            background: var(--apple-white);
+            border-radius: 20px;
+            border: 1px solid var(--apple-border);
+            padding: 20px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            z-index: 120;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="phone-mockup">
+        <!-- Status Bar -->
+        <div class="status-bar">
+            <span>Voice Call</span>
+            <span id="call-duration-top" style="color: var(--apple-blue); display: none;">00:00</span>
+        </div>
+
+        <!-- Языковая панель -->
+        <div id="language-panel">
+            <button class="lang-button active" onclick="setLanguage('RU')">RU</button>
+            <button class="lang-button" onclick="setLanguage('EN')">EN</button>
+        </div>
+
+        <!-- Панель входящего вызова -->
+        <div id="incoming-panel">
+            <div id="call-status-large">Входящий вызов...</div>
+            <p id="call-info" style="font-size: 14px; color: var(--apple-gray); margin-bottom: 10px;"></p>
+        </div>
+
+        <div class="call-info-panel">
+            <!-- Статус крупно -->
+            <div id="call-status-large">Подключение...</div>
+            <!-- Длительность -->
+            <div id="call-duration">00:00</div>
+            
+            <!-- Описание состояния для отладки -->
+            <div id="call-status-description" style="font-size: 12px; color: var(--apple-gray); margin-top: 5px;">Разрешите доступ к микрофону...</div>
+
+            <div class="controls" id="active-controls" style="display: none;">
+                <div class="buttons-grid">
+                    <!-- Без звука -->
+                    <button class="control-button" id="mute-btn">
+                        <div class="icon-circle">
+                            <svg class="icon" viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm-1-9c0-.55.45-1 1-1s1 .45 1 1v6c0 .55-.45 1-1 1s-1-.45-1-1V5z"/><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>
+                        </div>
+                        <span id="mute-label">Выкл. звук</span>
+                    </button>
+                    <!-- Клавиатура (не активна в этом примере) -->
+                    <div class="control-button" style="opacity: 0.3; cursor: default;">
+                        <div class="icon-circle">
+                            <svg class="icon" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-10 10-10S17.52 2 12 2zm5 11h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"/></svg>
+                        </div>
+                        <span>Клавиши</span>
+                    </div>
+                    <!-- Громкая связь -->
+                    <button class="control-button speaker" id="speaker-btn">
+                        <div class="icon-circle">
+                            <svg class="icon" viewBox="0 0 24 24"><path d="M18.17,4.89C17.78,4.5,17.15,4.5,16.76,4.89s-0.39,1.02,0,1.41C18.6,8.13,19,9.54,19,11s-0.4,2.87-1.24,4.7c-0.39,0.39-0.39,1.02,0,1.41s1.02,0.39,1.41,0C20.35,15.74,21,13.8,21,11S20.35,6.26,18.17,4.89z M12,4c-1.1,0-2,0.9-2,2v12c0,1.1,0.9,2,2,2c1.1,0,2-0.9,2-2V6C14,4.9,13.1,4,12,4z M13.88,10.66C13.8,10.2,13.43,10,13,10h-2c-0.43,0-0.8,0.2-0.88,0.66C10.05,10.98,10.3,11.2,10.53,11.36C10.68,11.45,10.84,11.53,11,11.6c0.05,0.02,0.1,0.04,0.15,0.06C11.33,11.75,11.5,11.83,11.67,11.9c0.11,0.05,0.22,0.09,0.33,0.14c0.23,0.1,0.47,0.19,0.7,0.27l0.01,0.01c0.05,0.02,0.09,0.04,0.14,0.06c0.16,0.06,0.32,0.12,0.48,0.17l0.01,0c0.16,0.05,0.32,0.1,0.48,0.14c0.15,0.04,0.3,0.08,0.46,0.11l0.01,0C13.68,12.87,13.85,12.93,14,13V6.26l-0.12,0.4C13.88,10.66z M16.76,17.7c0.39,0.39,1.02,0.39,1.41,0c1.11-1.11,1.83-2.61,1.83-4.7c0-2.09-0.72-3.59-1.83-4.7c-0.39-0.39-1.02-0.39-1.41,0c-0.39,0.39-0.39,1.02,0,1.41c0.75,0.75,1.24,1.74,1.24,3.29c0,1.55-0.49,2.54-1.24,3.29C16.36,16.68,16.36,17.3,16.76,17.7z"/></svg>
+                        </div>
+                        <span id="speaker-label">Динамик</span>
+                    </button>
+                </div>
+                <!-- Завершить -->
+                <button id="end-call-btn">
+                    <svg class="icon" viewBox="0 0 24 24" fill="white"><path d="M12 9c-1.6 0-3.15.25-4.6.72v3.1c0 .39-.23.74-.56.9-.98.49-1.87 1.12-2.66 1.85-.18.18-.43.28-.7.28-.28 0-.53-.11-.71-.29L.29 13.08c-.18-.17-.29-.42-.29-.7 0-.28.11-.53.29-.71C3.34 8.78 7.46 7 12 7s8.66 1.78 11.71 4.67c.18.18.29.43.29.71 0 .28-.11.53-.29.71l-2.48 2.48c-.18.18-.43.29-.71.29-.27 0-.52-.11-.7-.28-.79-.74-1.69-1.36-2.67-1.85-.33-.16-.56-.5-.56-.9v-3.1C15.15 9.25 13.6 9 12 9z"/></svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- Панель для того, кто создает звонок (первого пользователя) -->
+        <div id="host-panel">
+            <div id="host-link-card">
+                <p>Пригласите собеседника:</p>
+                <input type="text" id="share-link-input" readonly>
+                <button id="copy-link-btn" onclick="copyLink()">Скопировать ссылку</button>
+            </div>
+        </div>
+
+        <!-- Скрытый плеер для звука собеседника (по умолчанию earpiece/default) -->
+        <audio id="remote-audio-earpiece" autoplay></audio>
+        <!-- Скрытый плеер для звука собеседника (громкая связь) -->
+        <audio id="remote-audio-speaker" autoplay></audio>
+    </div>
+
+    <!-- Подключаем библиотеку PeerJS -->
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    
+    <script>
+        const callStatusLarge = document.getElementById('call-status-large');
+        const callStatusDescription = document.getElementById('call-status-description');
+        const callDurationDisplay = document.getElementById('call-duration');
+        const callDurationTopDisplay = document.getElementById('call-duration-top');
+        const remoteAudioEarpiece = document.getElementById('remote-audio-earpiece');
+        const remoteAudioSpeaker = document.getElementById('remote-audio-speaker');
+        const hostPanel = document.getElementById('host-panel');
+        const shareLinkInput = document.getElementById('share-link-input');
+        const activeControls = document.getElementById('active-controls');
+        const muteBtn = document.getElementById('mute-btn');
+        const muteLabel = document.getElementById('mute-label');
+        const speakerBtn = document.getElementById('speaker-btn');
+        const speakerLabel = document.getElementById('speaker-label');
+        const endCallBtn = document.getElementById('end-call-btn');
+        const incomingPanel = document.getElementById('incoming-panel');
+        const callInfo = document.getElementById('call-info');
+        const languagePanel = document.getElementById('language-panel');
+
+        let localStream;
+        let currentPeer;
+        let currentCall;
+        let isMuted = false;
+        let isSpeaker = false;
+        let callStartTime;
+        let durationInterval;
+
+        // Проверяем, есть ли в ссылке ID друга (параметр ?call=...)
+        const urlParams = new URLSearchParams(window.location.search);
+        const targetId = urlParams.get('call');
+
+        // Установка языка (персонализация)
+        let currentLanguage = 'RU';
+        function setLanguage(lang) {
+            currentLanguage = lang;
+            document.querySelectorAll('.lang-button').forEach(btn => btn.classList.remove('active'));
+            document.querySelector(`.lang-button[onclick="setLanguage('${lang}')"]`).classList.add('active');
+            updateUIStrings();
+        }
+
+        // Обновление строк интерфейса (персонализация)
+        function updateUIStrings() {
+            const strings = {
+                RU: {
+                    micDesc: "Разрешите доступ к микрофону...",
+                    micError: "Ошибка микрофона! Включите его в браузере.",
+                    serverConnect: "Связь с сервером...",
+                    hostWaiting: "Пригласите собеседника:",
+                    hostCopy: "Скопировать ссылку",
+                    callConnected: "Входящий вызов...",
+                    autoConnect: "Авто-соединение...",
+                    activeCall: "Звонок идет!",
+                    callEnd: "Завершен.",
+                    btnMute: "Выкл. звук",
+                    btnMuted: "Вкл. звук",
+                    btnSpeaker: "Динамик",
+                    callStartedAt: "Начат: ",
+                    duration: "00:00"
+                },
+                EN: {
+                    micDesc: "Allow microphone access...",
+                    micError: "Microphone error! Enable it in browser.",
+                    serverConnect: "Connecting to server...",
+                    hostWaiting: "Invite participant:",
+                    hostCopy: "Copy link",
+                    callConnected: "Incoming call...",
+                    autoConnect: "Auto-connecting...",
+                    activeCall: "On call!",
+                    callEnd: "Call ended.",
+                    btnMute: "Mute",
+                    btnMuted: "Unmute",
+                    btnSpeaker: "Speaker",
+                    callStartedAt: "Started at: ",
+                    duration: "00:00"
+                }
+            };
+
+            const s = strings[currentLanguage];
+            callStatusDescription.innerText = s.micDesc;
+            shareLinkInput.previousElementSibling.innerText = s.hostWaiting;
+            document.getElementById('copy-link-btn').innerText = s.hostCopy;
+            muteLabel.innerText = isMuted ? s.btnMuted : s.btnMute;
+            speakerLabel.innerText = s.btnSpeaker;
+            callStatusLarge.innerText = targetId ? s.autoConnect : s.hostWaiting;
+        }
+        updateUIStrings();
+
+        // Шаг 1: Запрашиваем микрофон у пользователя
+        navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+            .then(stream => {
+                localStream = stream;
+                callStatusDescription.innerText = strings[currentLanguage].serverConnect;
+                initPeer(); // Если дали микрофон, запускаем логику звонка
+            })
+            .catch(err => {
+                callStatusDescription.innerText = strings[currentLanguage].micError;
+                console.error("Ошибка микрофона:", err);
+            });
+
+        function initPeer() {
+            currentPeer = new Peer(); // Подключаемся к бесплатному серверу PeerJS
+
+            currentPeer.on('open', myId => {
+                // Прячем языковую панель при готовности к звонку
+                languagePanel.style.display = 'none';
+
+                if (targetId) {
+                    // ЕСЛИ МЫ ПЕРЕШЛИ ПО ССЫЛКЕ ДРУГА
+                    callStatusLarge.innerText = strings[currentLanguage].autoConnect;
+                    
+                    // Звоним другу автоматом, передаем свой звук
+                    const call = currentPeer.call(targetId, localStream);
+                    handleCall(call);
+
+                } else {
+                    // ЕСЛИ МЫ ЗАШЛИ ПЕРВЫЕ НА САЙТ
+                    callStatusLarge.innerText = "Подключение...";
+                    callStatusDescription.innerText = strings[currentLanguage].hostWaiting;
+                    
+                    // Создаем ссылку для друга: текущий адрес сайта + ?call=наш_ID
+                    const link = window.location.origin + window.location.pathname + '?call=' + myId;
+                    shareLinkInput.value = link;
+                    hostPanel.style.display = 'flex'; // Показываем панель со ссылкой
+                }
+            });
+
+            // Обработка входящего звонка (когда друг перешел по нашей ссылке)
+            currentPeer.on('call', call => {
+                incomingPanel.style.display = 'flex';
+                callStatusLarge.innerText = strings[currentLanguage].callConnected;
+                callInfo.innerText = strings[currentLanguage].callStartedAt + new Date().toLocaleTimeString();
+                
+                // Автоматически снимаем трубку и отправляем свой звук
+                call.answer(localStream);
+                handleCall(call);
+                
+                // Прячем ссылку, она больше не нужна
+                hostPanel.style.display = 'none';
+            });
+        }
+
+        // Общая функция для воспроизведения звука (когда звоним мы или нам)
+        function handleCall(call) {
+            currentCall = call;
+            activeControls.style.display = 'flex';
+            incomingPanel.style.display = 'none';
+            callStatusLarge.innerText = strings[currentLanguage].activeCall;
+            callStatusDescription.innerText = "";
+            callDurationDisplay.style.display = 'block';
+            callDurationTopDisplay.style.display = 'block';
+            
+            // Начинаем отсчет времени звонка
+            callStartTime = Date.now();
+            updateCallDuration();
+            durationInterval = setInterval(updateCallDuration, 1000);
+
+            call.on('stream', remoteStream => {
+                remoteAudioEarpiece.srcObject = remoteStream;
+                remoteAudioSpeaker.srcObject = remoteStream;
+                setSpeaker(isSpeaker); // Принудительно устанавливаем громкость на старте
+            });
+
+            call.on('close', () => {
+                endCallUI();
+            });
+        }
+
+        // Логика управления звонком
+
+        // Без звука
+        muteBtn.addEventListener('click', () => {
+            isMuted = !isMuted;
+            localStream.getAudioTracks()[0].enabled = !isMuted;
+            muteBtn.classList.toggle('active', isMuted);
+            updateUIStrings();
+        });
+
+        // Громкая связь
+        speakerBtn.addEventListener('click', () => {
+            isSpeaker = !isSpeaker;
+            setSpeaker(isSpeaker);
+            speakerBtn.classList.toggle('active', isSpeaker);
+            updateUIStrings();
+        });
+
+        function setSpeaker(speaker) {
+            // Веб-платформы имеют ограничения на переключение между разговорным динамиком и громкой связью.
+            // На мобильных устройствах это часто контролируется операционной системой или браузером.
+            // Мы пытаемся управлять громкостью элементов аудио, но это может работать по-разному.
+            // В идеале, для веб-приложения, мы указываем системе предпочтение, но не контролируем это полностью.
+
+            if (speaker) {
+                // Громкая связь: приглушаем earpiece, включаем speaker
+                remoteAudioEarpiece.volume = 0;
+                remoteAudioSpeaker.volume = 1;
+            } else {
+                // Разговорный динамик: наоборот
+                remoteAudioEarpiece.volume = 1;
+                remoteAudioSpeaker.volume = 0;
+            }
+        }
+
+        // Завершение звонка
+        endCallBtn.addEventListener('click', () => {
+            if (currentCall) {
+                currentCall.close();
+            }
+            if (currentPeer) {
+                currentPeer.destroy();
+            }
+            endCallUI();
+        });
+
+        // Длительность звонка
+        function updateCallDuration() {
+            const diff = Date.now() - callStartTime;
+            const minutes = Math.floor(diff / 60000).toString().padStart(2, '0');
+            const seconds = Math.floor((diff % 60000) / 1000).toString().padStart(2, '0');
+            const duration = `${minutes}:${seconds}`;
+            callDurationDisplay.innerText = duration;
+            callDurationTopDisplay.innerText = duration;
+        }
+
+        // UX/UI при завершении
+        function endCallUI() {
+            activeControls.style.display = 'none';
+            clearInterval(durationInterval);
+            callStatusLarge.innerText = strings[currentLanguage].callEnd;
+            callDurationDisplay.style.display = 'none';
+            callDurationTopDisplay.style.display = 'none';
+            // Очищаем URL, чтобы перезайти в чистый интерфейс при обновлении страницы
+            window.history.replaceState({}, document.title, window.location.pathname);
+            
+            // Задержка перед полным сбросом для лучшего UX
+            setTimeout(() => {
+                callStatusDescription.innerText = "";
+            }, 2000);
+        }
+
+        // Функция для кнопки "Скопировать ссылку"
+        function copyLink() {
+            shareLinkInput.select();
+            navigator.clipboard.writeText(shareLinkInput.value)
+                .then(() => alert(strings[currentLanguage].hostCopy + "!"))
+                .catch(err => alert("Ошибка копирования. Скопируйте ссылку вручную."));
+        }
+    </script>
+</body>
+</html>
